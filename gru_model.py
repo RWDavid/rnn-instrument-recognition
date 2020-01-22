@@ -20,12 +20,12 @@ class GRUNet(nn.Module):
         return out
 
 def train(net, train_X, train_y, epochs, batch_size):
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    optimizer = optim.Adam(net.parameters(), lr=0.002)
     loss_function = nn.MSELoss()
     for epoch in range(epochs):
-        for i in tqdm(range(0, len(train_X), batch_size)):
-            batch_X = train_X[i:i + batch_size]
-            batch_y = train_y[i:i + batch_size]
+        for i in range(0, len(train_X), batch_size):
+            batch_X = train_X[i:i + batch_size].to(device)
+            batch_y = train_y[i:i + batch_size].to(device)
             net.zero_grad()
             outputs = net(batch_X)
             loss = loss_function(outputs, batch_y)
@@ -40,7 +40,7 @@ def test(net, test_X, test_y):
     with torch.no_grad():
         for i in tqdm(range(len(test_X))):
             real_class = torch.argmax(test_y[i])
-            output = net(test_X[i].view(1, 10, 100))
+            output = net(test_X[i].view(1, 10, 200).to(device))
             predicted_class = torch.argmax(output)
             if predicted_class == real_class:
                 correct += 1
@@ -55,12 +55,13 @@ training_data = np.load("training_data.npy", allow_pickle=True)
 X = torch.Tensor([i[0] for i in training_data])
 y = torch.Tensor([i[1] for i in training_data])
 
-test_size = int(len(X) * 0.1)
-train_X = X[:-test_size]
-train_y = y[:-test_size]
-test_X = X[-test_size:]
-test_y = y[-test_size:]
+net = GRUNet(200, 64, 3, 1).to(device)
 
-net = GRUNet(100, 64, 3, 1)
-train(net, train_X, train_y, 50, 32)
-test(net, test_X, test_y)
+train(net, X, y, 1000, 100)
+
+test_data = np.load("test_data.npy", allow_pickle=True)
+X = torch.Tensor([i[0] for i in test_data])
+y = torch.Tensor([i[1] for i in test_data])
+test(net, X, y)
+
+torch.save(net.state_dict(), "gru.pt")
