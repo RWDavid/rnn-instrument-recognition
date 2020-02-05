@@ -20,7 +20,7 @@ class GRUNet(nn.Module):
         return out
 
 def train(net, train_X, train_y, epochs, batch_size):
-    optimizer = optim.Adam(net.parameters(), lr=0.002)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
     loss_function = nn.MSELoss()
     for epoch in range(epochs):
         for i in range(0, len(train_X), batch_size):
@@ -40,7 +40,7 @@ def test(net, test_X, test_y):
     with torch.no_grad():
         for i in tqdm(range(len(test_X))):
             real_class = torch.argmax(test_y[i])
-            output = net(test_X[i].view(1, 10, 200).to(device))
+            output = net(test_X[i].view(1, 10, 13).to(device))
             predicted_class = torch.argmax(output)
             if predicted_class == real_class:
                 correct += 1
@@ -51,15 +51,16 @@ device = torch.device("cpu")
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
 
-training_data = np.load("training_data.npy", allow_pickle=True)
+training_data = np.load("train.npy", allow_pickle=True)
 X = torch.Tensor([i[0] for i in training_data])
 y = torch.Tensor([i[1] for i in training_data])
 
-net = GRUNet(200, 64, 3, 1).to(device)
+net = GRUNet(13, 64, 3, 1).to(device)
 
-train(net, X, y, 1000, 100)
+train(net, X, y, 100, 100)
+test(net, X, y)
 
-test_data = np.load("test_data.npy", allow_pickle=True)
+test_data = np.load("test.npy", allow_pickle=True)
 X = torch.Tensor([i[0] for i in test_data])
 y = torch.Tensor([i[1] for i in test_data])
 test(net, X, y)
