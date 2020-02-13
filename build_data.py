@@ -3,11 +3,13 @@ import librosa
 import numpy as np
 from tqdm import tqdm
 
+default_sr = 22050
+
 # number of samples in each frame
-frame_size = 5513
+frame_size = int(default_sr / 4)
 
 # number of samples to progress between each iteration
-frame_step = 2048
+frame_step = int(default_sr / 10)
 
 # the highest frequency that will be considered in the frequency spectrum
 freq_top = 4000
@@ -15,16 +17,21 @@ freq_top = 4000
 # the number of bins to condense the frequency spectrum into
 bins = 200
 
-# list of lists with training data and corresponding labels
-training_data = []
+# train/test data with corresponding labels
+dataset = []
 
 # classes and their corresponding labels
 labels = {"clarinet": 0, "flute": 1, "trumpet": 2}
 counts = {"clarinet": 0, "flute": 0, "trumpet": 0}
 
-# go through all classes/folders in the audio directory
+# determine whether train/test data should be generated
+dataset_type = ""
+while dataset_type not in ("train", "test"):
+    dataset_type = input("What data should be generated? (\"train\", \"test\") ")
+
+# go through all classes/folders in the selectory directory
 for label in labels:
-    directory = os.path.join("audio", label)
+    directory = os.path.join(dataset_type, label)
 
     # iterate through each audio file in each class
     print("Processing " + label + " files:")
@@ -38,7 +45,7 @@ for label in labels:
 
         # split audio into audible phrases (to avoid silence)
         # note: lowering top_db leads to stricter spliting
-        intervals = librosa.effects.split(samples, top_db=30, frame_length=5133, hop_length=2048)
+        intervals = librosa.effects.split(samples, top_db=30, frame_length=frame_size, hop_length=frame_step)
         non_silent = []
         for begin, end in intervals:
 
@@ -72,11 +79,11 @@ for label in labels:
         # concatenate every 10 adjacent spectrums to form a sequence
         for i in range(0, len(spectrums) - 9, 10):
             sequence = [x for x in spectrums[i:i + 10]]
-            training_data.append([np.array(sequence), np.eye(len(labels))[labels[label]]])
+            dataset.append([np.array(sequence), np.eye(len(labels))[labels[label]]])
             counts[label] += 1
 
-np.random.shuffle(training_data)
-np.save("training_data.npy", training_data)
+np.random.shuffle(dataset)
+np.save(dataset_type + ".npy", dataset)
 print("Data Distribution:")
 for label in labels.keys():
     print(label + ": " + str(counts[label]))
