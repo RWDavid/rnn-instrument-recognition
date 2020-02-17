@@ -1,4 +1,5 @@
-import time
+import argparse
+import queue
 import librosa
 import torch
 import torch.nn as nn
@@ -33,28 +34,54 @@ net = GRUNet(13, 10, 4, 1).to(device)
 net.load_state_dict(torch.load('gru.pt'))
 net.eval()
 
-# receive user input
-path = input("Enter path to audio: ")
-samples, sample_rate = librosa.load(path)
-buffer_size = int(input("Enter buffer size: "))
-buffer = np.array([-1 for x in range(buffer_size)])
 
-# sample rate of each audio file (librosa mixes each file to 22050 mono)
-default_sr = 22050
+def int_or_str(text):
+    """Helper function for argument parsing."""
+    try:
+        return int(text)
+    except ValueError:
+        return text
+
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument(
+    '-l', '--list-devices', action='store_true',
+    help='show list of audio devices and exit')
+args, remaining = parser.parse_known_args()
+if args.list_devices:
+    print(sd.query_devices())
+    parser.exit(0)
+parser = argparse.ArgumentParser(
+    description=__doc__,
+    formatter_class=argparse.RawDescriptionHelpFormatter,
+    parents=[parser])
+parser.add_argument(
+    'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
+    help='input channels to plot (default: the first)')
+parser.add_argument(
+    '-d', '--device', type=int_or_str,
+    help='input device (numeric ID or substring)')
+parser.add_argument(
+    '-r', '--samplerate', type=float, help='sampling rate of audio device')
+args = parser.parse_args(remaining)
+
+if args.samplerate is None:
+    device_info = sd.query_devices(args.device, 'input')
+    args.samplerate = device_info['default_samplerate']
+
 
 # number of samples in each frame
-frame_size = int(default_sr * 0.025)
+frame_size = int(args.samplerate * 0.025)
 
 # number of samples to progress between each iteration
-frame_step = int(default_sr * 0.010)
+frame_step = int(args.samplerate * 0.010)
 
 # length of sequence of mfccs
 seq_len = 50
 
-# play audio file
-sd.play(samples, sample_rate)
-tstart = time.time()
-duration = len(samples) / sample_rate
+# receive user input
+buffer_size = int(input("Enter buffer size: "))
+buffer = np.array([-1 for x in range(buffer_size)])
 
 # set up plot animation
 labels = ["clarinet", "flute", "trumpet", "violin"]
@@ -63,6 +90,7 @@ ax = plt.gca()
 ax.set_title('Instrument Prediction')
 ax.set_xlabel('Instrument')
 ax.set_ylabel('Confidence')
+
 bars = plt.bar(labels, [0 for x in range(len(labels))])
 bar_heights = [0 for x in range(len(labels))]
 plt.ylim(0, buffer_size)
@@ -75,31 +103,47 @@ def animate(frame):
 anim = animation.FuncAnimation(fig, animate, repeat=False, blit=True, interval=1000//60)
 plt.show(block=False)
 
-while time.time() - tstart < duration:
+# set up callback function for microphone stream
+sample_queue = queue.Queue()
+def audio_callback(indata, frames, time, status):
+
+    # only obtain samples from the 0th channel
+    sample_data = indata[:, 0]
+    sample_queue.put(sample_data.flatten())
+
+
+stream = sd.InputStream(device=args.device, channels=max(args.channels), samplerate=args.samplerate, callback=audio_callback)
+stream.start()
+
+current_samples = np.array([0.0 for x in range(frame_step*(seq_len-1) + frame_size)])
+while True:
 
     # update plot
     plt.pause(.001)
 
-    # obtain current sample index based on time
-    tnow = time.time() - tstart
-    current = int(tnow*sample_rate)
+    # read in sample data
+    while True:
+        try:
+            data = sample_queue.get_nowait()
+        except queue.Empty:
+            break
+        shift = len(data)
+        current_samples = np.roll(current_samples, -shift, axis=0)
+        current_samples[-shift:] = data
+
 
     # detect and skip silent audio
-    rms = librosa.feature.rms(samples[current:current + (seq_len-1)*frame_step + frame_size])[0]
-    if min(rms) < 0.01:
+    rms = librosa.feature.rms(current_samples)[0]
+    if min(rms) < 0.001:
         continue
 
     # extract mfccs from current audio excerpt
-    mfccs = librosa.feature.mfcc(samples[current:current + (seq_len-1)*frame_step + frame_size], sample_rate, win_length=frame_size, hop_length=frame_step, n_mfcc=26)
+    mfccs = librosa.feature.mfcc(current_samples, args.samplerate, win_length=frame_size, hop_length=frame_step, n_mfcc=26)
     mfccs = mfccs[:13]
     mean = np.mean(mfccs, axis=0)
     std = np.std(mfccs, axis=0)
     mfccs = (mfccs - mean) / std
     mfccs = mfccs.T[:seq_len]
-
-    # skip this audio excerpt if there is insufficient data
-    if len(mfccs) != 50:
-        continue
 
     # send data to model for prediction
     mfccs = torch.Tensor(mfccs).view(1, 50, 13)
