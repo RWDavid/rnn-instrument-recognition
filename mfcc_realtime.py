@@ -8,6 +8,8 @@ import numpy as np
 from collections import Counter
 import matplotlib.pyplot as plt
 from matplotlib import animation
+import warnings
+warnings.simplefilter("ignore")
 
 
 # define neural network model
@@ -29,8 +31,8 @@ class GRUNet(nn.Module):
 device = torch.device("cpu")
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
-net = GRUNet(13, 10, 4, 1).to(device)
-net.load_state_dict(torch.load('gru.pt'))
+net = GRUNet(13, 10, 7, 1).to(device)
+net.load_state_dict(torch.load('gru.pt', map_location=device))
 net.eval()
 
 # receive user input
@@ -57,7 +59,7 @@ tstart = time.time()
 duration = len(samples) / sample_rate
 
 # set up plot animation
-labels = ["clarinet", "flute", "trumpet", "violin"]
+labels = ["clarinet", "flute", "trumpet", "trombone", "violin", "guitar", "piano"]
 fig = plt.figure()
 ax = plt.gca()
 ax.set_title('Instrument Prediction')
@@ -90,7 +92,7 @@ while time.time() - tstart < duration:
         continue
 
     # extract mfccs from current audio excerpt
-    mfccs = librosa.feature.mfcc(samples[current:current + (seq_len-1)*frame_step + frame_size], sample_rate, win_length=frame_size, hop_length=frame_step, n_mfcc=26)
+    mfccs = librosa.feature.mfcc(samples[current:current + (seq_len-1)*frame_step + frame_size], sample_rate, n_fft=frame_size, hop_length=frame_step, n_mfcc=26)
     mfccs = mfccs[:13]
     mean = np.mean(mfccs, axis=0)
     std = np.std(mfccs, axis=0)

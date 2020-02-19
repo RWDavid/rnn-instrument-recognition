@@ -2,6 +2,8 @@ import os
 import librosa
 import numpy as np
 from tqdm import tqdm
+import warnings
+warnings.simplefilter("ignore")
 
 # sample rate of each audio file (librosa mixes each file to 22050 mono)
 default_sr = 22050
@@ -16,8 +18,8 @@ frame_step = int(default_sr * 0.010)
 seq_len = 50
 
 # classes and their corresponding labels
-labels = {"clarinet": 0, "flute": 1, "trumpet": 2}
-counts = {"clarinet": 0, "flute": 0, "trumpet": 0}
+labels = {"clarinet": 0, "flute": 1, "trumpet": 2, "trombone": 3, "violin": 4, "guitar": 5, "piano": 6}
+counts = {"clarinet": 0, "flute": 0, "trumpet": 0, "trombone": 0, "violin": 0, "guitar": 0, "piano": 0}
 
 # train/test data with corresponding labels
 dataset = [[] for x in range(len(labels))]
@@ -54,7 +56,7 @@ for label_num, label in enumerate(labels):
 
         # iterate through each audible phrase
         for phrase in non_silent:
-            mfccs = librosa.feature.mfcc(phrase, sample_rate, win_length=frame_size, hop_length=frame_step, n_mfcc=26)
+            mfccs = librosa.feature.mfcc(phrase, sample_rate, n_fft=frame_size, hop_length=frame_step, n_mfcc=26)
             mfccs = mfccs[:13]
             mean = np.mean(mfccs, axis=0)
             std = np.std(mfccs, axis=0)

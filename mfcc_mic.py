@@ -30,8 +30,8 @@ class GRUNet(nn.Module):
 device = torch.device("cpu")
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
-net = GRUNet(13, 10, 4, 1).to(device)
-net.load_state_dict(torch.load('gru.pt'))
+net = GRUNet(13, 10, 7, 1).to(device)
+net.load_state_dict(torch.load('gru.pt', map_location=device))
 net.eval()
 
 
@@ -55,9 +55,6 @@ parser = argparse.ArgumentParser(
     description=__doc__,
     formatter_class=argparse.RawDescriptionHelpFormatter,
     parents=[parser])
-parser.add_argument(
-    'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
-    help='input channels to plot (default: the first)')
 parser.add_argument(
     '-d', '--device', type=int_or_str,
     help='input device (numeric ID or substring)')
@@ -84,7 +81,7 @@ buffer_size = int(input("Enter buffer size: "))
 buffer = np.array([-1 for x in range(buffer_size)])
 
 # set up plot animation
-labels = ["clarinet", "flute", "trumpet", "violin"]
+labels = ["clarinet", "flute", "trumpet", "trombone", "violin", "guitar", "piano"]
 fig = plt.figure()
 ax = plt.gca()
 ax.set_title('Instrument Prediction')
@@ -138,7 +135,7 @@ while True:
         continue
 
     # extract mfccs from current audio excerpt
-    mfccs = librosa.feature.mfcc(current_samples, args.samplerate, win_length=frame_size, hop_length=frame_step, n_mfcc=26)
+    mfccs = librosa.feature.mfcc(current_samples, args.samplerate, n_fft=frame_size, hop_length=frame_step, n_mfcc=26)
     mfccs = mfccs[:13]
     mean = np.mean(mfccs, axis=0)
     std = np.std(mfccs, axis=0)

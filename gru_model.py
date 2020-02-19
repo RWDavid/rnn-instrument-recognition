@@ -12,7 +12,6 @@ class GRUNet(nn.Module):
         super().__init__()
         self.hidden_size = hidden_size
         self.gru = nn.GRU(input_size=input_size, hidden_size=hidden_size, num_layers=n_layers, batch_first=True)
-        #self.dropout = nn.Dropout(0.8)
         self.fc = nn.Linear(hidden_size, output_size)
 
         # weight initialization
@@ -24,13 +23,12 @@ class GRUNet(nn.Module):
     def forward(self, x):
         out, h = self.gru(x)
         out = out[:, -1]
-        #out = self.dropout(out)
         out = self.fc(F.relu(out))
         return out
 
 
 def train(net, train_X, train_y, test_X, test_y, epochs, batch_size):
-    optimizer = optim.Adam(net.parameters(), lr=0.00001)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
     loss_function = nn.MSELoss()
 
     train_loss_history = []
@@ -99,9 +97,9 @@ test_data = np.load("test.npy", allow_pickle=True)
 test_X = torch.Tensor([i[0] for i in test_data])
 test_y = torch.Tensor([i[1] for i in test_data])
 
-net = GRUNet(13, 10, 3, 1).to(device)
+net = GRUNet(13, 10, 7, 1).to(device)
 
-train_loss, test_loss = train(net, X, y, test_X, test_y, 20000, 1000)
+train_loss, test_loss = train(net, X, y, test_X, test_y, 500, 1000)
 
 test(net, X, y)
 test(net, test_X, test_y)
