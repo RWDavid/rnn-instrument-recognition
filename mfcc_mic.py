@@ -59,6 +59,9 @@ parser.add_argument(
     '-d', '--device', type=int_or_str,
     help='input device (numeric ID or substring)')
 parser.add_argument(
+    'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
+    help='input channels to plot (default: the first)')
+parser.add_argument(
     '-r', '--samplerate', type=float, help='sampling rate of audio device')
 args = parser.parse_args(remaining)
 
@@ -131,7 +134,7 @@ while True:
 
     # detect and skip silent audio
     rms = librosa.feature.rms(current_samples)[0]
-    if min(rms) < 0.001:
+    if min(rms) < 0.01:
         continue
 
     # extract mfccs from current audio excerpt

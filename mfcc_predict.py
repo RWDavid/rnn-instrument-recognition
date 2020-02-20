@@ -27,7 +27,7 @@ device = torch.device("cpu")
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
 net = GRUNet(13, 16, 7, 1).to(device)
-net.load_state_dict(torch.load('gru.pt'))
+net.load_state_dict(torch.load('gru.pt', map_location=device))
 net.eval()
 
 path = input("Enter path to audio: ")
