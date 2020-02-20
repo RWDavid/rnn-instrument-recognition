@@ -26,8 +26,8 @@ class GRUNet(nn.Module):
 device = torch.device("cpu")
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
-net = GRUNet(13, 10, 7, 1).to(device)
-net.load_state_dict(torch.load('gru.pt', map_location=device))
+net = GRUNet(13, 16, 7, 1).to(device)
+net.load_state_dict(torch.load('gru.pt'))
 net.eval()
 
 path = input("Enter path to audio: ")
@@ -77,8 +77,7 @@ for phrase in non_silent:
 
 guess = np.argmax(np.array(counts))
 print("Prediction: " + labels[guess])
-print("Ratio: " + str(counts[guess] / sum(counts)))
 
-print("\nAll instrument predictions (with ratios):")
+print("\nAll instrument predictions (with confidence ratings):")
 for guess, instrument in enumerate(labels):
     print(instrument, counts[guess] / sum(counts))

@@ -5,6 +5,9 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+import seaborn as sn
+import pandas as pd
 
 
 class GRUNet(nn.Module):
@@ -28,7 +31,7 @@ class GRUNet(nn.Module):
 
 
 def train(net, train_X, train_y, test_X, test_y, epochs, batch_size):
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    optimizer = optim.Adam(net.parameters(), lr=0.0003)
     loss_function = nn.MSELoss()
 
     train_loss_history = []
@@ -85,6 +88,26 @@ def test(net, test_X, test_y):
     print("Accuracy:", round(correct/total, 3))
 
 
+def confusion(net, test_X, test_y):
+    net.eval()
+    y_true = []
+    y_pred = []
+    with torch.no_grad():
+        for i in tqdm(range(len(test_X))):
+            real_class = torch.argmax(test_y[i])
+            y_true.append(real_class.item())
+            output = net(test_X[i].view(1, 50, 13).to(device))
+            predicted_class = torch.argmax(output)
+            y_pred.append(predicted_class.item())
+    matrix = confusion_matrix(y_true, y_pred, normalize="true")
+    labels = ["clarinet", "flute", "trumpet", "trombone", "violin", "guitar", "piano"]
+    df = pd.DataFrame(matrix, labels, labels)
+    plt.figure()
+    sn.heatmap(df, annot=True)
+    plt.xticks(rotation=0)
+    plt.title("Confusion Matrix of Test Data (Normalized Across Rows)")
+    plt.show()
+
 device = torch.device("cpu")
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
@@ -97,16 +120,20 @@ test_data = np.load("test.npy", allow_pickle=True)
 test_X = torch.Tensor([i[0] for i in test_data])
 test_y = torch.Tensor([i[1] for i in test_data])
 
-net = GRUNet(13, 10, 7, 1).to(device)
+net = GRUNet(13, 16, 7, 1).to(device)
 
-train_loss, test_loss = train(net, X, y, test_X, test_y, 500, 1000)
-
-test(net, X, y)
-test(net, test_X, test_y)
+train_loss, test_loss = train(net, X, y, test_X, test_y, 2000, 1000)
 
 plt.plot(train_loss)
 plt.plot(test_loss)
+plt.title("Training/Test Loss over Epochs")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
 plt.legend(['training loss', 'test loss'], loc='upper left')
 plt.show()
+
+test(net, X, y)
+test(net, test_X, test_y)
+confusion(net, test_X, test_y)
 
 torch.save(net.state_dict(), "gru.pt")
