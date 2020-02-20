@@ -30,7 +30,7 @@ class GRUNet(nn.Module):
 device = torch.device("cpu")
 if torch.cuda.is_available():
     device = torch.device("cuda:0")
-net = GRUNet(13, 10, 7, 1).to(device)
+net = GRUNet(13, 16, 7, 1).to(device)
 net.load_state_dict(torch.load('gru.pt', map_location=device))
 net.eval()
 
@@ -58,9 +58,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-d', '--device', type=int_or_str,
     help='input device (numeric ID or substring)')
-parser.add_argument(
-    'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
-    help='input channels to plot (default: the first)')
 parser.add_argument(
     '-r', '--samplerate', type=float, help='sampling rate of audio device')
 args = parser.parse_args(remaining)
@@ -134,7 +131,7 @@ while True:
 
     # detect and skip silent audio
     rms = librosa.feature.rms(current_samples)[0]
-    if min(rms) < 0.01:
+    if min(rms) < 0.001:
         continue
 
     # extract mfccs from current audio excerpt
